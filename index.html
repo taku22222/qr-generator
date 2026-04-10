@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QRコード生成 & URL短縮ツール</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  min-height: 100vh;
+  color: #e0e0e0;
+}
+
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.6rem;
+  margin-bottom: 6px;
+  background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 28px;
+}
+
+/* Cards */
+.card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(12px);
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon {
+  font-size: 1.2rem;
+}
+
+/* Input area */
+.input-group {
+  margin-bottom: 14px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-bottom: 5px;
+}
+
+.input-group input, .input-group select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.3);
+  color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-group input:focus, .input-group select:focus {
+  border-color: #a78bfa;
+}
+
+.input-group input::placeholder {
+  color: #666;
+}
+
+.btn {
+  padding: 12px 28px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #fff;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Customization */
+.custom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 500px) {
+  .custom-grid { grid-template-columns: 1fr; }
+}
+
+.color-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-input-wrap input[type="color"] {
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.color-input-wrap input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.color-input-wrap input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+.color-hex {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+
+/* Range slider */
+.range-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.range-wrap input[type="range"] {
+  flex: 1;
+  accent-color: #a78bfa;
+  height: 6px;
+}
+
+.range-val {
+  font-size: 0.85rem;
+  color: #ccc;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Shape buttons */
+.shape-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.shape-btn {
+  padding: 8px 16px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.3);
+  color: #ccc;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shape-btn.active {
+  border-color: #a78bfa;
+  background: rgba(167,139,250,0.15);
+  color: #a78bfa;
+}
+
+/* Result area */
+.result-area {
+  display: none;
+  text-align: center;
+}
+
+.result-area.show {
+  display: block;
+}
+
+#qrcode-container {
+  display: inline-block;
+  padding: 20px;
+  border-radius: 16px;
+  margin: 16px auto;
+  transition: background 0.3s;
+}
+
+#qrcode-container canvas {
+  display: block !important;
+  border-radius: 4px;
+}
+
+#qrcode-container img {
+  display: none !important;
+}
+
+/* Short URL */
+.short-url-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 12px auto;
+  max-width: 500px;
+}
+
+.short-url-box input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #60a5fa;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.btn-copy {
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: #ccc;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-copy:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+/* Save section */
+.save-section {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  align-items: end;
+}
+
+.save-section .input-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.btn-save {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #059669, #0d9488);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-save:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(5,150,105,0.4);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: #1e1e2e;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  transition: transform 0.3s ease;
+  z-index: 100;
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Preview bg selector */
+.bg-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bg-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bg-btn.active {
+  border-color: #a78bfa;
+  box-shadow: 0 0 8px rgba(167,139,250,0.4);
+}
+
+/* URL shorten info */
+.shorten-info {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 6px;
+}
+
+/* Error correction level */
+.ec-options {
+  display: flex;
+  gap: 8px;
+}
+
+.ec-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.3);
+  color: #ccc;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ec-btn.active {
+  border-color: #a78bfa;
+  background: rgba(167,139,250,0.15);
+  color: #a78bfa;
+}
+
+/* Logo embed section */
+.logo-section {
+  margin-top: 14px;
+}
+
+.logo-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.logo-icon-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.logo-icon-btn.active {
+  border-color: #a78bfa;
+  background: rgba(167,139,250,0.15);
+  box-shadow: 0 0 8px rgba(167,139,250,0.4);
+}
+
+.logo-icon-btn:hover {
+  border-color: rgba(255,255,255,0.3);
+}
+
+.logo-icon-btn img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.logo-upload-area {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.logo-upload-btn {
+  padding: 8px 16px;
+  border: 1px dashed rgba(255,255,255,0.3);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.2);
+  color: #aaa;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logo-upload-btn:hover {
+  border-color: #a78bfa;
+  color: #a78bfa;
+}
+
+#logoUpload {
+  display: none;
+}
+
+.logo-preview-wrap {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-preview-wrap.show {
+  display: flex;
+}
+
+.logo-preview-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #fff;
+  padding: 2px;
+}
+
+.logo-remove-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  background: rgba(220,38,38,0.2);
+  color: #f87171;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logo-remove-btn:hover {
+  background: rgba(220,38,38,0.4);
+}
+
+.logo-size-wrap {
+  margin-top: 10px;
+}
+
+.logo-shape-options {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.logo-shape-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.3);
+  color: #ccc;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logo-shape-btn.active {
+  border-color: #a78bfa;
+  background: rgba(167,139,250,0.15);
+  color: #a78bfa;
+}
+
+.logo-notice {
+  font-size: 0.72rem;
+  color: #f59e0b;
+  margin-top: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>QRコード生成 & URL短縮ツール</h1>
+  <p class="subtitle">URLからQRコードを生成・カスタマイズ・保存</p>
+
+  <!-- URL入力 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🔗</span> URL入力</div>
+    <div class="input-group">
+      <label>変換するURL</label>
+      <input type="url" id="urlInput" placeholder="https://example.com" />
+    </div>
+    <div class="input-group">
+      <label>短縮URL（TinyURL API）</label>
+      <div class="short-url-box">
+        <input type="text" id="shortUrlDisplay" readonly placeholder="生成ボタンを押すと表示されます" />
+        <button class="btn-copy" onclick="copyShortUrl()">コピー</button>
+      </div>
+      <div class="shorten-info">※ TinyURL APIを利用。オフライン時はスキップされます。</div>
+    </div>
+    <button class="btn btn-primary" id="generateBtn" onclick="generate()">QRコードを生成</button>
+  </div>
+
+  <!-- カスタマイズ -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🎨</span> デザインカスタマイズ</div>
+
+    <div class="custom-grid">
+      <div class="input-group">
+        <label>前景色（ドット）</label>
+        <div class="color-input-wrap">
+          <input type="color" id="fgColor" value="#000000" onchange="updateColorLabel(this, 'fgHex'); regenerate()" />
+          <span class="color-hex" id="fgHex">#000000</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>背景色</label>
+        <div class="color-input-wrap">
+          <input type="color" id="bgColor" value="#ffffff" onchange="updateColorLabel(this, 'bgHex'); regenerate()" />
+          <span class="color-hex" id="bgHex">#ffffff</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="custom-grid" style="margin-top: 14px;">
+      <div class="input-group">
+        <label>サイズ（px）</label>
+        <div class="range-wrap">
+          <input type="range" id="qrSize" min="128" max="512" value="256" step="16" oninput="document.getElementById('sizeVal').textContent=this.value+'px'; regenerate()" />
+          <span class="range-val" id="sizeVal">256px</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>外枠フレーム幅</label>
+        <div class="range-wrap">
+          <input type="range" id="qrMargin" min="0" max="60" value="24" step="2" oninput="document.getElementById('marginVal').textContent=this.value+'px'; updateFrame()" />
+          <span class="range-val" id="marginVal">24px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-group" style="margin-top: 14px;">
+      <label>誤り訂正レベル</label>
+      <div class="ec-options">
+        <button class="ec-btn" data-level="L" onclick="setEC(this)">L（7%）</button>
+        <button class="ec-btn active" data-level="M" onclick="setEC(this)">M（15%）</button>
+        <button class="ec-btn" data-level="Q" onclick="setEC(this)">Q（25%）</button>
+        <button class="ec-btn" data-level="H" onclick="setEC(this)">H（30%）</button>
+      </div>
+    </div>
+
+    <div class="input-group" style="margin-top: 14px;">
+      <label>プレビュー背景（保存時にも反映されます）</label>
+      <div class="bg-options">
+        <div class="bg-btn active" style="background:#fff" data-bg="#ffffff" data-solid="true" onclick="setBg(this)"></div>
+        <div class="bg-btn" style="background:#f3f4f6" data-bg="#f3f4f6" data-solid="true" onclick="setBg(this)"></div>
+        <div class="bg-btn" style="background:#1e1e2e" data-bg="#1e1e2e" data-solid="true" onclick="setBg(this)"></div>
+        <div class="bg-btn" style="background:#000" data-bg="#000000" data-solid="true" onclick="setBg(this)"></div>
+        <!-- 淡い虹色グラデーション -->
+        <div class="bg-btn" style="background:linear-gradient(135deg,#fee2e2,#fecaca)" data-bg="linear-gradient(135deg,#fee2e2,#fecaca)" data-colors="#fee2e2,#fecaca" onclick="setBg(this)" title="淡い赤"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#ffedd5,#fed7aa)" data-bg="linear-gradient(135deg,#ffedd5,#fed7aa)" data-colors="#ffedd5,#fed7aa" onclick="setBg(this)" title="淡いオレンジ"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#fef9c3,#fde68a)" data-bg="linear-gradient(135deg,#fef9c3,#fde68a)" data-colors="#fef9c3,#fde68a" onclick="setBg(this)" title="淡い黄色"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0)" data-bg="linear-gradient(135deg,#d1fae5,#a7f3d0)" data-colors="#d1fae5,#a7f3d0" onclick="setBg(this)" title="淡い緑"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#cffafe,#a5f3fc)" data-bg="linear-gradient(135deg,#cffafe,#a5f3fc)" data-colors="#cffafe,#a5f3fc" onclick="setBg(this)" title="淡い水色"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)" data-bg="linear-gradient(135deg,#dbeafe,#bfdbfe)" data-colors="#dbeafe,#bfdbfe" onclick="setBg(this)" title="淡い青"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#e0e7ff,#c7d2fe)" data-bg="linear-gradient(135deg,#e0e7ff,#c7d2fe)" data-colors="#e0e7ff,#c7d2fe" onclick="setBg(this)" title="淡い藍"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe)" data-bg="linear-gradient(135deg,#ede9fe,#ddd6fe)" data-colors="#ede9fe,#ddd6fe" onclick="setBg(this)" title="淡い紫"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8)" data-bg="linear-gradient(135deg,#fce7f3,#fbcfe8)" data-colors="#fce7f3,#fbcfe8" onclick="setBg(this)" title="淡いピンク"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#fce7f3,#dbeafe)" data-bg="linear-gradient(135deg,#fce7f3,#dbeafe)" data-colors="#fce7f3,#dbeafe" onclick="setBg(this)" title="ピンク→青"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#d1fae5,#ede9fe)" data-bg="linear-gradient(135deg,#d1fae5,#ede9fe)" data-colors="#d1fae5,#ede9fe" onclick="setBg(this)" title="緑→紫"></div>
+        <div class="bg-btn" style="background:linear-gradient(135deg,#fef9c3,#fce7f3)" data-bg="linear-gradient(135deg,#fef9c3,#fce7f3)" data-colors="#fef9c3,#fce7f3" onclick="setBg(this)" title="黄→ピンク"></div>
+        <button class="bg-btn" style="background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#aaa;font-size:1rem;line-height:1" onclick="resetBg()" title="設定解除">✕</button>
+      </div>
+    </div>
+
+    <!-- プリセット -->
+    <div class="input-group" style="margin-top: 14px;">
+      <label>カラープリセット</label>
+      <div class="shape-options">
+        <button class="shape-btn" onclick="applyPreset('#000000','#ffffff')">モノクロ</button>
+        <button class="shape-btn" onclick="applyPreset('#ffffff','#000000')">反転</button>
+        <button class="shape-btn" onclick="applyPreset('#1e3a5f','#e8f4fd')">ブルー</button>
+        <button class="shape-btn" onclick="applyPreset('#0369a1','#e0f2fe')">スカイブルー</button>
+        <button class="shape-btn" onclick="applyPreset('#164e63','#cffafe')">シアン</button>
+        <button class="shape-btn" onclick="applyPreset('#14532d','#ecfdf5')">グリーン</button>
+        <button class="shape-btn" onclick="applyPreset('#065f46','#d1fae5')">エメラルド</button>
+        <button class="shape-btn" onclick="applyPreset('#3f6212','#f7fee7')">ライム</button>
+        <button class="shape-btn" onclick="applyPreset('#7c2d12','#fff7ed')">オレンジ</button>
+        <button class="shape-btn" onclick="applyPreset('#92400e','#fffbeb')">アンバー</button>
+        <button class="shape-btn" onclick="applyPreset('#be123c','#fff1f2')">レッド</button>
+        <button class="shape-btn" onclick="applyPreset('#9f1239','#ffe4e6')">ローズ</button>
+        <button class="shape-btn" onclick="applyPreset('#d946ef','#fdf4ff')">ピンク</button>
+        <button class="shape-btn" onclick="applyPreset('#a21caf','#fae8ff')">フューシャ</button>
+        <button class="shape-btn" onclick="applyPreset('#581c87','#faf5ff')">パープル</button>
+        <button class="shape-btn" onclick="applyPreset('#4338ca','#eef2ff')">インディゴ</button>
+        <button class="shape-btn" onclick="applyPreset('#78350f','#fefce8')">ブラウン</button>
+        <button class="shape-btn" onclick="applyPreset('#374151','#f3f4f6')">グレー</button>
+        <button class="shape-btn" onclick="applyPreset('#0f172a','#f8fafc')">ネイビー</button>
+        <button class="shape-btn" onclick="applyPreset('#dc2626','#fef2f2')">ビビッドレッド</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ロゴ埋め込み -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🖼️</span> ロゴ・アイコン埋め込み</div>
+
+    <div class="input-group">
+      <label>プリセットアイコン（クリックで選択）</label>
+      <div class="logo-grid">
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🏠')" title="ホーム">🏠</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🏢')" title="ビル">🏢</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🏥')" title="病院">🏥</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🛒')" title="ショッピング">🛒</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🍽️')" title="レストラン">🍽️</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '☕')" title="カフェ">☕</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '✈️')" title="旅行">✈️</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🎵')" title="音楽">🎵</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '📱')" title="モバイル">📱</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '💼')" title="ビジネス">💼</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🎓')" title="教育">🎓</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '⭐')" title="スター">⭐</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '❤️')" title="ハート">❤️</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🌐')" title="Web">🌐</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '📧')" title="メール">📧</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🔔')" title="通知">🔔</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '📝')" title="アンケート">📝</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '❓')" title="質問・FAQ">❓</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '📋')" title="フォーム">📋</button>
+        <button class="logo-icon-btn" onclick="selectEmojiLogo(this, '🎁')" title="プレゼント・クーポン">🎁</button>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>カスタムロゴをアップロード</label>
+      <div class="logo-upload-area">
+        <label class="logo-upload-btn" for="logoUpload">📁 画像を選択</label>
+        <input type="file" id="logoUpload" accept="image/*" onchange="handleLogoUpload(event)" />
+        <div class="logo-preview-wrap" id="logoPreviewWrap">
+          <img id="logoPreviewThumb" class="logo-preview-thumb" />
+          <span id="logoFileName" style="font-size:0.8rem;color:#aaa;"></span>
+          <button class="logo-remove-btn" onclick="removeLogo()">✕ 解除</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="custom-grid">
+      <div class="input-group logo-size-wrap">
+        <label>ロゴサイズ（QRの何%）</label>
+        <div class="range-wrap">
+          <input type="range" id="logoSize" min="10" max="30" value="20" step="1" oninput="document.getElementById('logoSizeVal').textContent=this.value+'%'; overlayLogo()" />
+          <span class="range-val" id="logoSizeVal">20%</span>
+        </div>
+      </div>
+      <div class="input-group logo-size-wrap">
+        <label>ロゴ余白</label>
+        <div class="range-wrap">
+          <input type="range" id="logoPadding" min="0" max="12" value="4" step="1" oninput="document.getElementById('logoPadVal').textContent=this.value+'px'; overlayLogo()" />
+          <span class="range-val" id="logoPadVal">4px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-group" style="margin-top: 8px;">
+      <label>ロゴ形状</label>
+      <div class="logo-shape-options">
+        <button class="logo-shape-btn active" data-shape="square" onclick="setLogoShape(this)">四角</button>
+        <button class="logo-shape-btn" data-shape="rounded" onclick="setLogoShape(this)">角丸</button>
+        <button class="logo-shape-btn" data-shape="circle" onclick="setLogoShape(this)">円形</button>
+      </div>
+    </div>
+
+    <div class="logo-notice" id="logoNotice" style="display:none;">
+      ⚠️ ロゴ埋め込み時は誤り訂正レベルH（30%）を推奨します。自動でHに切り替わります。
+    </div>
+  </div>
+
+  <!-- QRコード結果 -->
+  <div class="card result-area" id="resultCard">
+    <div class="card-title"><span class="icon">📱</span> 生成結果</div>
+    <div id="qrcode-container"></div>
+
+    <!-- 保存セクション -->
+    <div class="save-section">
+      <div class="input-group">
+        <label>保存タイトル</label>
+        <input type="text" id="saveTitle" placeholder="例: 自社サイトQR" />
+      </div>
+      <button class="btn-save" onclick="saveQR()">💾 PNG保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let qrInstance = null;
+let currentUrl = '';
+let ecLevel = QRCode.CorrectLevel.M;
+let currentBgSetting = { type: 'solid', value: '#ffffff' };
+let logoImage = null;       // Image element for uploaded/selected logo
+let logoType = null;        // 'emoji' or 'upload'
+let logoShape = 'square';   // 'square', 'rounded', 'circle'
+let qrCanvasBackup = null;  // backup of QR canvas before logo overlay
+
+function generate() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) {
+    showToast('URLを入力してください');
+    return;
+  }
+  currentUrl = url;
+
+  // Short URL
+  shortenUrl(url);
+
+  // QR
+  renderQR(url);
+
+  document.getElementById('resultCard').classList.add('show');
+  setTimeout(() => {
+    document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+function renderQR(url) {
+  const container = document.getElementById('qrcode-container');
+  container.innerHTML = '';
+
+  const size = parseInt(document.getElementById('qrSize').value);
+  const fg = document.getElementById('fgColor').value;
+  const bg = document.getElementById('bgColor').value;
+  const frame = parseInt(document.getElementById('qrMargin').value);
+
+  // Frame width as padding — this is the visible preview background area
+  container.style.padding = frame + 'px';
+
+  // Apply current preview background to container
+  if (currentBgSetting.type === 'gradient' && currentBgSetting.css) {
+    container.style.background = currentBgSetting.css;
+  } else {
+    container.style.background = currentBgSetting.value || '#ffffff';
+  }
+
+  qrInstance = new QRCode(container, {
+    text: url,
+    width: size,
+    height: size,
+    colorDark: fg,
+    colorLight: bg,
+    correctLevel: ecLevel,
+  });
+
+  // qrcodejs generates both canvas and img; hide the duplicate img, then overlay logo
+  setTimeout(() => {
+    const img = container.querySelector('img');
+    if (img) img.style.display = 'none';
+
+    // Backup clean QR canvas, then overlay logo
+    const cvs = container.querySelector('canvas');
+    if (cvs) {
+      qrCanvasBackup = cvs.getContext('2d').getImageData(0, 0, cvs.width, cvs.height);
+      if (logoImage) overlayLogo();
+    }
+  }, 50);
+}
+
+function updateFrame() {
+  const container = document.getElementById('qrcode-container');
+  const frame = parseInt(document.getElementById('qrMargin').value);
+  container.style.padding = frame + 'px';
+}
+
+function regenerate() {
+  if (!currentUrl) return;
+  renderQR(currentUrl);
+}
+
+async function shortenUrl(url) {
+  const display = document.getElementById('shortUrlDisplay');
+  display.value = '取得中...';
+  try {
+    const res = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(url));
+    if (res.ok) {
+      display.value = await res.text();
+    } else {
+      display.value = '取得失敗';
+    }
+  } catch {
+    display.value = 'オフラインのためスキップ';
+  }
+}
+
+function copyShortUrl() {
+  const val = document.getElementById('shortUrlDisplay').value;
+  if (!val || val.includes('...') || val.includes('失敗') || val.includes('スキップ')) {
+    showToast('コピーできるURLがありません');
+    return;
+  }
+  navigator.clipboard.writeText(val).then(() => showToast('コピーしました'));
+}
+
+function updateColorLabel(input, labelId) {
+  document.getElementById(labelId).textContent = input.value;
+}
+
+function setEC(btn) {
+  document.querySelectorAll('.ec-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const levels = { L: QRCode.CorrectLevel.L, M: QRCode.CorrectLevel.M, Q: QRCode.CorrectLevel.Q, H: QRCode.CorrectLevel.H };
+  ecLevel = levels[btn.dataset.level];
+  regenerate();
+}
+
+function setBg(btn) {
+  document.querySelectorAll('.bg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const bg = btn.dataset.bg;
+  const container = document.getElementById('qrcode-container');
+  container.style.background = bg;
+
+  if (btn.dataset.solid === 'true') {
+    currentBgSetting = { type: 'solid', value: bg };
+  } else if (btn.dataset.colors) {
+    currentBgSetting = { type: 'gradient', colors: btn.dataset.colors.split(','), css: bg };
+  }
+}
+
+function resetBg() {
+  document.querySelectorAll('.bg-btn').forEach(b => b.classList.remove('active'));
+  const container = document.getElementById('qrcode-container');
+  // Reset to QR background color (no frame color)
+  const bg = document.getElementById('bgColor').value;
+  container.style.background = bg;
+  currentBgSetting = { type: 'solid', value: bg };
+  // Also set frame to 0
+  document.getElementById('qrMargin').value = 0;
+  document.getElementById('marginVal').textContent = '0px';
+  container.style.padding = '0px';
+  showToast('プレビュー背景を解除しました');
+}
+
+function applyPreset(fg, bg) {
+  document.getElementById('fgColor').value = fg;
+  document.getElementById('bgColor').value = bg;
+  document.getElementById('fgHex').textContent = fg;
+  document.getElementById('bgHex').textContent = bg;
+  regenerate();
+}
+
+function saveQR() {
+  const title = document.getElementById('saveTitle').value.trim() || 'QRコード';
+  const now = new Date();
+  const dateStr = now.getFullYear() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0');
+  const filename = dateStr + '_' + title + '.png';
+
+  const container = document.getElementById('qrcode-container');
+  const canvas = container.querySelector('canvas');
+  if (!canvas) {
+    const img = container.querySelector('img');
+    if (img) {
+      const a = document.createElement('a');
+      a.href = img.src;
+      a.download = filename;
+      a.click();
+      showToast('保存: ' + filename);
+      return;
+    }
+    showToast('QRコードが生成されていません');
+    return;
+  }
+
+  // Draw canvas with frame + preview background onto export canvas
+  const frame = parseInt(document.getElementById('qrMargin').value);
+  const fullW = canvas.width + frame * 2;
+  const fullH = canvas.height + frame * 2;
+
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = fullW;
+  exportCanvas.height = fullH;
+  const ctx = exportCanvas.getContext('2d');
+
+  // Draw background (solid or gradient) matching the preview
+  if (currentBgSetting.type === 'gradient' && currentBgSetting.colors) {
+    const c1 = currentBgSetting.colors[0];
+    const c2 = currentBgSetting.colors[1];
+    const grad = ctx.createLinearGradient(0, 0, fullW, fullH);
+    grad.addColorStop(0, c1);
+    grad.addColorStop(1, c2);
+    ctx.fillStyle = grad;
+  } else {
+    ctx.fillStyle = currentBgSetting.value || document.getElementById('bgColor').value;
+  }
+  ctx.fillRect(0, 0, fullW, fullH);
+  ctx.drawImage(canvas, frame, frame);
+
+  const a = document.createElement('a');
+  a.href = exportCanvas.toDataURL('image/png');
+  a.download = filename;
+  a.click();
+  showToast('保存: ' + filename);
+}
+
+// ===== Logo Functions =====
+
+function selectEmojiLogo(btn, emoji) {
+  // Toggle off if already selected
+  if (btn.classList.contains('active')) {
+    btn.classList.remove('active');
+    logoImage = null;
+    logoType = null;
+    document.getElementById('logoNotice').style.display = 'none';
+    regenerate();
+    return;
+  }
+  // Deselect all
+  document.querySelectorAll('.logo-icon-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Clear upload
+  clearUploadPreview();
+
+  // Render emoji to image
+  logoType = 'emoji';
+  const size = 256;
+  const cvs = document.createElement('canvas');
+  cvs.width = size; cvs.height = size;
+  const ctx = cvs.getContext('2d');
+  ctx.font = (size * 0.8) + 'px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, size / 2, size / 2);
+
+  const img = new Image();
+  img.onload = () => {
+    logoImage = img;
+    autoSetHighEC();
+    regenerate();
+  };
+  img.src = cvs.toDataURL();
+}
+
+function handleLogoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Deselect preset icons
+  document.querySelectorAll('.logo-icon-btn').forEach(b => b.classList.remove('active'));
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      logoImage = img;
+      logoType = 'upload';
+      // Show preview
+      document.getElementById('logoPreviewThumb').src = e.target.result;
+      document.getElementById('logoFileName').textContent = file.name;
+      document.getElementById('logoPreviewWrap').classList.add('show');
+      autoSetHighEC();
+      regenerate();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  logoImage = null;
+  logoType = null;
+  clearUploadPreview();
+  document.querySelectorAll('.logo-icon-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('logoUpload').value = '';
+  document.getElementById('logoNotice').style.display = 'none';
+  regenerate();
+}
+
+function clearUploadPreview() {
+  document.getElementById('logoPreviewWrap').classList.remove('show');
+  document.getElementById('logoPreviewThumb').src = '';
+  document.getElementById('logoFileName').textContent = '';
+  document.getElementById('logoUpload').value = '';
+}
+
+function autoSetHighEC() {
+  // Auto switch to H level for logo embedding
+  if (ecLevel !== QRCode.CorrectLevel.H) {
+    ecLevel = QRCode.CorrectLevel.H;
+    document.querySelectorAll('.ec-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.ec-btn[data-level="H"]').classList.add('active');
+    document.getElementById('logoNotice').style.display = 'block';
+  }
+}
+
+function setLogoShape(btn) {
+  document.querySelectorAll('.logo-shape-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  logoShape = btn.dataset.shape;
+  overlayLogo();
+}
+
+function overlayLogo() {
+  if (!logoImage || !currentUrl) return;
+  const container = document.getElementById('qrcode-container');
+  const canvas = container.querySelector('canvas');
+  if (!canvas) return;
+
+  // Restore QR canvas from backup first
+  if (qrCanvasBackup) {
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(qrCanvasBackup, 0, 0);
+  }
+
+  const ctx = canvas.getContext('2d');
+  const qrSize = canvas.width;
+  const logoPercent = parseInt(document.getElementById('logoSize').value) / 100;
+  const padding = parseInt(document.getElementById('logoPadding').value);
+
+  // Calculate logo dimensions preserving aspect ratio
+  const maxLogoSize = qrSize * logoPercent;
+  const imgW = logoImage.naturalWidth || logoImage.width;
+  const imgH = logoImage.naturalHeight || logoImage.height;
+  const scale = Math.min(maxLogoSize / imgW, maxLogoSize / imgH);
+  const drawW = imgW * scale;
+  const drawH = imgH * scale;
+
+  const x = (qrSize - drawW) / 2;
+  const y = (qrSize - drawH) / 2;
+
+  // Draw white background behind logo with padding
+  const bgX = x - padding;
+  const bgY = y - padding;
+  const bgW = drawW + padding * 2;
+  const bgH = drawH + padding * 2;
+
+  ctx.save();
+
+  if (logoShape === 'circle') {
+    const radius = Math.max(bgW, bgH) / 2;
+    const cx = qrSize / 2;
+    const cy = qrSize / 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = document.getElementById('bgColor').value;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - padding, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logoImage, x, y, drawW, drawH);
+  } else if (logoShape === 'rounded') {
+    const r = Math.min(bgW, bgH) * 0.15;
+    drawRoundRect(ctx, bgX, bgY, bgW, bgH, r);
+    ctx.fillStyle = document.getElementById('bgColor').value;
+    ctx.fill();
+    const lr = Math.min(drawW, drawH) * 0.1;
+    drawRoundRect(ctx, x, y, drawW, drawH, lr);
+    ctx.clip();
+    ctx.drawImage(logoImage, x, y, drawW, drawH);
+  } else {
+    // Square
+    ctx.fillStyle = document.getElementById('bgColor').value;
+    ctx.fillRect(bgX, bgY, bgW, bgH);
+    ctx.drawImage(logoImage, x, y, drawW, drawH);
+  }
+
+  ctx.restore();
+}
+
+function drawRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Enter key
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') generate();
+});
+</script>
+</body>
+</html>
