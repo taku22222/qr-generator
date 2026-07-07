@@ -714,6 +714,17 @@ h1 {
   <!-- QRコード結果 -->
   <div class="card result-area" id="resultCard">
     <div class="card-title"><span class="icon">📱</span> 生成結果</div>
+
+    <!-- QR化するURLの切替トグル -->
+    <div class="input-group" style="text-align:left;">
+      <label>QRコードにするURL（印刷でつぶれる場合は「短縮URL」推奨）</label>
+      <div class="ec-options" id="qrSourceOptions">
+        <button class="ec-btn active" data-source="original" onclick="setQrSource(this)">元URL（長い）</button>
+        <button class="ec-btn" data-source="short" onclick="setQrSource(this)">短縮URL（コンパクト）</button>
+      </div>
+      <div class="shorten-info" id="qrSourceNotice">現在のQRは「元URL」を指しています。</div>
+    </div>
+
     <div id="qrcode-container"></div>
 
     <!-- 保存セクション -->
@@ -721,6 +732,15 @@ h1 {
       <div class="input-group">
         <label>保存タイトル</label>
         <input type="text" id="saveTitle" placeholder="例: 自社サイトQR" />
+      </div>
+      <div class="input-group" style="max-width:150px;">
+        <label>印刷解像度</label>
+        <select id="exportScale">
+          <option value="1">等倍</option>
+          <option value="2" selected>2倍（推奨）</option>
+          <option value="3">3倍</option>
+          <option value="4">4倍（高精細）</option>
+        </select>
       </div>
       <button class="btn-save" onclick="saveQR()">💾 PNG保存</button>
     </div>
@@ -731,7 +751,9 @@ h1 {
 
 <script>
 let qrInstance = null;
-let currentUrl = '';
+let currentUrl = '';        // 元URL（入力されたもの）
+let shortUrl = '';          // 取得済みの短縮URL
+let qrSource = 'original';  // 'original' or 'short' — QRにどちらを使うか
 let ecLevel = QRCode.CorrectLevel.M;
 let currentBgSetting = { type: 'solid', value: '#ffffff' };
 let logoImage = null;       // Image element for uploaded/selected logo
@@ -746,12 +768,13 @@ function generate() {
     return;
   }
   currentUrl = url;
+  shortUrl = '';
 
-  // Short URL
+  // Short URL（取得完了後、短縮モードならQRを更新）
   shortenUrl(url);
 
-  // QR
-  renderQR(url);
+  // QR（現在の選択に応じたURLで生成）
+  renderQR(activeQrUrl());
 
   document.getElementById('resultCard').classList.add('show');
   setTimeout(() => {
@@ -809,7 +832,34 @@ function updateFrame() {
 
 function regenerate() {
   if (!currentUrl) return;
-  renderQR(currentUrl);
+  renderQR(activeQrUrl());
+}
+
+// QRに使うURLを返す。短縮モードでも短縮URL未取得なら元URLにフォールバック。
+function activeQrUrl() {
+  if (qrSource === 'short' && shortUrl) return shortUrl;
+  return currentUrl;
+}
+
+function setQrSource(btn) {
+  document.querySelectorAll('#qrSourceOptions .ec-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  qrSource = btn.dataset.source;
+  updateQrSourceNotice();
+  regenerate();
+}
+
+function updateQrSourceNotice() {
+  const notice = document.getElementById('qrSourceNotice');
+  if (qrSource === 'short') {
+    if (shortUrl) {
+      notice.textContent = '現在のQRは短縮URL（' + shortUrl + '）を指しています。';
+    } else {
+      notice.textContent = '短縮URLを取得中／未取得のため、暫定的に元URLでQRを生成しています。';
+    }
+  } else {
+    notice.textContent = '現在のQRは「元URL」を指しています。';
+  }
 }
 
 async function shortenUrl(url) {
@@ -818,12 +868,25 @@ async function shortenUrl(url) {
   try {
     const res = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(url));
     if (res.ok) {
-      display.value = await res.text();
+      const result = (await res.text()).trim();
+      if (result.startsWith('http')) {
+        display.value = result;
+        shortUrl = result;
+        // 短縮モードで待機していた場合はQRを短縮URLで再生成
+        if (qrSource === 'short') {
+          renderQR(activeQrUrl());
+          updateQrSourceNotice();
+        }
+      } else {
+        display.value = '取得失敗';
+      }
     } else {
       display.value = '取得失敗';
     }
   } catch {
     display.value = 'オフラインのためスキップ';
+    // 短縮モードでも取得できなければ元URLのまま（activeQrUrlがフォールバック）
+    if (qrSource === 'short') updateQrSourceNotice();
   }
 }
 
@@ -908,10 +971,11 @@ function saveQR() {
     return;
   }
 
-  // Draw canvas with frame + preview background onto export canvas
+  // 印刷解像度スケール（整数倍でニアレストネイバー拡大 → QRのエッジをくっきり保つ）
+  const scale = parseInt(document.getElementById('exportScale').value) || 1;
   const frame = parseInt(document.getElementById('qrMargin').value);
-  const fullW = canvas.width + frame * 2;
-  const fullH = canvas.height + frame * 2;
+  const fullW = (canvas.width + frame * 2) * scale;
+  const fullH = (canvas.height + frame * 2) * scale;
 
   const exportCanvas = document.createElement('canvas');
   exportCanvas.width = fullW;
@@ -930,13 +994,16 @@ function saveQR() {
     ctx.fillStyle = currentBgSetting.value || document.getElementById('bgColor').value;
   }
   ctx.fillRect(0, 0, fullW, fullH);
-  ctx.drawImage(canvas, frame, frame);
+
+  // QRを整数倍で拡大描画（スムージングを切りドットのエッジを維持）
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, frame * scale, frame * scale, canvas.width * scale, canvas.height * scale);
 
   const a = document.createElement('a');
   a.href = exportCanvas.toDataURL('image/png');
   a.download = filename;
   a.click();
-  showToast('保存: ' + filename);
+  showToast('保存: ' + filename + '（' + scale + '倍 / ' + fullW + '×' + fullH + 'px）');
 }
 
 // ===== Logo Functions =====
